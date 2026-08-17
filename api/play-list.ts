@@ -1,6 +1,25 @@
 // api/play-list.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './supabaseAdmin';
+import { pgSelect } from './postgrest';
+
+interface WordListRow {
+  id: string;
+  user_id: string;
+  nom: string;
+  ordre_aleatoire: boolean;
+  distracteurs_actifs: boolean;
+  nb_distracteurs: number;
+  indices_actifs: boolean;
+}
+
+interface WordRow {
+  mot: string;
+}
+
+interface StudentRow {
+  id: string;
+  code_anonyme: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -15,40 +34,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const supabase = supabaseAdmin();
-
-    const { data: list, error: listError } = await supabase
-      .from('lexi_word_lists')
-      .select('id, user_id, nom, ordre_aleatoire, distracteurs_actifs, nb_distracteurs, indices_actifs')
-      .eq('share_code', code)
-      .maybeSingle();
-
-    if (listError || !list) {
+    const lists = await pgSelect<WordListRow[]>(
+      'lexi_word_lists',
+      `select=id,user_id,nom,ordre_aleatoire,distracteurs_actifs,nb_distracteurs,indices_actifs&share_code=eq.${encodeURIComponent(code)}`
+    );
+    const list = lists[0];
+    if (!list) {
       res.status(404).json({ error: 'Lien invalide ou expiré' });
       return;
     }
 
-    const { data: words, error: wordsError } = await supabase
-      .from('lexi_words')
-      .select('mot, position')
-      .eq('list_id', list.id)
-      .order('position', { ascending: true });
+    const words = await pgSelect<WordRow[]>(
+      'lexi_words',
+      `select=mot,position&list_id=eq.${list.id}&order=position.asc`
+    );
 
-    if (wordsError || !words) {
-      res.status(500).json({ error: 'Erreur lors du chargement des mots' });
-      return;
-    }
-
-    const { data: students, error: studentsError } = await supabase
-      .from('lexi_students')
-      .select('id, code_anonyme')
-      .eq('user_id', list.user_id)
-      .order('code_anonyme', { ascending: true });
-
-    if (studentsError || !students) {
-      res.status(500).json({ error: 'Erreur lors du chargement des élèves' });
-      return;
-    }
+    const students = await pgSelect<StudentRow[]>(
+      'lexi_students',
+      `select=id,code_anonyme&user_id=eq.${list.user_id}&order=code_anonyme.asc`
+    );
 
     // `list.user_id` is used above only to scope the students query — it is
     // deliberately NOT included in the response object below.
@@ -65,9 +69,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       students,
     });
   } catch (e) {
-    // TEMP diagnostic: surfaces the real thrown error instead of a bare
-    // FUNCTION_INVOCATION_FAILED crash with no message. Tighten back to a
-    // generic message once the root cause of the 500 is confirmed.
-    res.status(500).json({ error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) });
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erreur inattendue' });
   }
 }
