@@ -1,8 +1,9 @@
 // src/components/WordListsManager.tsx
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { WordList } from '../lib/types';
 import { createWordList, deleteWordList, getWords, listWordLists, updateWordList } from '../lib/wordLists';
 import { FormField } from './FormField';
+import { ShareLinkPanel } from './ShareLinkPanel';
 
 const LONG_WORD_THRESHOLD = 10;
 
@@ -31,6 +32,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
   const [showRissNote, setShowRissNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sharingListId, setSharingListId] = useState<string | null>(null);
 
   useEffect(() => {
     listWordLists(userId).then(setLists).catch((e) => setError(e.message));
@@ -219,43 +221,60 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
       <ul className="mt-4">
         {lists.length === 0 && <li className="plai-empty">Aucune liste créée.</li>}
         {lists.map((l) => (
-          <li key={l.id} className="flex justify-between items-center py-1 border-b border-[var(--border)]">
-            <span>{l.nom}</span>
-            <span className="flex gap-3">
-              <button
-                type="button"
-                className="text-sm text-[var(--teal-text)]"
-                onClick={() => onPlayList(l)}
-                aria-label={`Jouer à la liste ${l.nom}`}
-              >
-                Jouer
-              </button>
-              <button
-                type="button"
-                className="text-sm text-[var(--teal-text)]"
-                onClick={() => onOpenList(l)}
-                aria-label={`Voir la progression de la liste ${l.nom}`}
-              >
-                Progression
-              </button>
-              <button
-                type="button"
-                className="text-sm text-[var(--teal-text)]"
-                onClick={() => handleEdit(l)}
-                aria-label={`Modifier la liste ${l.nom}`}
-              >
-                Modifier
-              </button>
-              <button
-                type="button"
-                className="text-sm text-[var(--text3)]"
-                onClick={() => handleDelete(l)}
-                aria-label={`Supprimer la liste ${l.nom}`}
-              >
-                Supprimer
-              </button>
-            </span>
-          </li>
+          <Fragment key={l.id}>
+            <li className="flex justify-between items-center py-1 border-b border-[var(--border)]">
+              <span>{l.nom}</span>
+              <span className="flex gap-3">
+                <button
+                  type="button"
+                  className="text-sm text-[var(--teal-text)]"
+                  onClick={() => onPlayList(l)}
+                  aria-label={`Jouer à la liste ${l.nom}`}
+                >
+                  Jouer
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--teal-text)]"
+                  onClick={() => onOpenList(l)}
+                  aria-label={`Voir la progression de la liste ${l.nom}`}
+                >
+                  Progression
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--teal-text)]"
+                  onClick={() => setSharingListId((id) => (id === l.id ? null : l.id))}
+                  aria-expanded={sharingListId === l.id}
+                  aria-label={`Partager la liste ${l.nom}`}
+                >
+                  Partager
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--teal-text)]"
+                  onClick={() => handleEdit(l)}
+                  aria-label={`Modifier la liste ${l.nom}`}
+                >
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--text3)]"
+                  onClick={() => handleDelete(l)}
+                  aria-label={`Supprimer la liste ${l.nom}`}
+                >
+                  Supprimer
+                </button>
+              </span>
+            </li>
+            {sharingListId === l.id && (
+              <ShareLinkPanel
+                list={l}
+                onListUpdated={(updated) => setLists((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))}
+              />
+            )}
+          </Fragment>
         ))}
       </ul>
     </div>
