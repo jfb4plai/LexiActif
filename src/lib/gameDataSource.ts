@@ -8,6 +8,7 @@ export interface GameWordList {
   distracteurs_actifs: boolean;
   nb_distracteurs: number;
   indices_actifs: boolean;
+  langue: string;
 }
 
 export interface GameStudent {

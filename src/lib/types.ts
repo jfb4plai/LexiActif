@@ -9,6 +9,7 @@ export interface WordList {
   nb_distracteurs: number;
   indices_actifs: boolean;
   share_code: string | null;
+  langue: string;
   created_at: string;
 }
 

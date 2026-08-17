@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameDataSource, GameStudent, GameWordList } from '../lib/gameDataSource';
 import { buildWheelLetters, buildWordQueue, countWellPlaced, scoreForWord } from '../lib/gameEngine';
+import { speechLangFor } from '../lib/languages';
 
 interface GameProps {
   list: GameWordList;
@@ -14,10 +15,10 @@ const WHEEL_SIZE = 260;
 const WHEEL_RADIUS = 100;
 const HINT_COST = 5;
 
-function speak(word: string) {
+function speak(word: string, lang: string) {
   try {
     const utterance = new SpeechSynthesisUtterance(word);
-    utterance.lang = 'fr-FR';
+    utterance.lang = lang;
     utterance.rate = 0.8;
     speechSynthesis.speak(utterance);
   } catch {
@@ -61,11 +62,13 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
 
   useEffect(() => {
     if (!currentWord) return;
-    setWheelLetters(buildWheelLetters(currentWord, list.distracteurs_actifs, list.nb_distracteurs));
+    setWheelLetters(
+      buildWheelLetters(currentWord, list.distracteurs_actifs, list.nb_distracteurs, undefined, list.langue)
+    );
     setSelectedIndices([]);
     setFound(false);
     setHintsUsed(0);
-  }, [wordIndex, currentWord, list.distracteurs_actifs, list.nb_distracteurs]);
+  }, [wordIndex, currentWord, list.distracteurs_actifs, list.nb_distracteurs, list.langue]);
 
   useEffect(() => {
     return () => {
@@ -145,7 +148,7 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
       setWordsFound((n) => n + 1);
       setFound(true);
       setMessage(`Bravo ! +${gained} points`);
-      speak(currentWord);
+      speak(currentWord, speechLangFor(list.langue));
       advanceTimeoutRef.current = window.setTimeout(() => {
         setWordIndex((i) => i + 1);
         setMessage('');
@@ -163,7 +166,7 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
       setMessage("Trouvez d'abord le mot pour entendre sa prononciation.");
       return;
     }
-    speak(currentWord);
+    speak(currentWord, speechLangFor(list.langue));
   };
 
   return (

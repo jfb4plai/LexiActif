@@ -4,6 +4,7 @@ import type { WordList } from '../lib/types';
 import { createWordList, deleteWordList, getWords, listWordLists, updateWordList } from '../lib/wordLists';
 import { FormField } from './FormField';
 import { ShareLinkPanel } from './ShareLinkPanel';
+import { SUPPORTED_LANGUAGES } from '../lib/languages';
 
 const LONG_WORD_THRESHOLD = 10;
 
@@ -29,6 +30,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
   const [distracteursActifs, setDistracteursActifs] = useState(false);
   const [nbDistracteurs, setNbDistracteurs] = useState(1);
   const [indicesActifs, setIndicesActifs] = useState(false);
+  const [langue, setLangue] = useState('fr');
   const [showRissNote, setShowRissNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
     setDistracteursActifs(false);
     setNbDistracteurs(1);
     setIndicesActifs(false);
+    setLangue('fr');
   };
 
   const handleEdit = async (list: WordList) => {
@@ -62,6 +65,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
       setDistracteursActifs(list.distracteurs_actifs);
       setNbDistracteurs(list.nb_distracteurs || 1);
       setIndicesActifs(list.indices_actifs);
+      setLangue(list.langue);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors du chargement de la liste.');
     }
@@ -105,6 +109,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           distracteursActifs,
           nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
           indicesActifs,
+          langue,
         });
         setLists((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
       } else {
@@ -116,6 +121,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           distracteursActifs,
           nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
           indicesActifs,
+          langue,
         });
         setLists((prev) => [list, ...prev]);
       }
@@ -133,6 +139,21 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
 
       <FormField label="Nom de la liste" required help="Ex. « Animaux de la ferme », « Semaine 3 »." style={{ marginBottom: 12 }}>
         <input className="plai-input" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Animaux de la ferme" />
+      </FormField>
+
+      <FormField
+        label="Langue des mots"
+        required
+        help="Détermine la prononciation (synthèse vocale) et les lettres proposées en distracteur. L'interface de l'app reste en français quelle que soit la langue choisie ici."
+        style={{ marginBottom: 12, maxWidth: 260 }}
+      >
+        <select className="plai-input" value={langue} onChange={(e) => setLangue(e.target.value)}>
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
+          ))}
+        </select>
       </FormField>
 
       <FormField
@@ -223,7 +244,14 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
         {lists.map((l) => (
           <Fragment key={l.id}>
             <li className="flex justify-between items-center py-1 border-b border-[var(--border)]">
-              <span>{l.nom}</span>
+              <span>
+                {l.nom}
+                {l.langue !== 'fr' && (
+                  <span className="text-xs text-[var(--text3)] ml-2">
+                    ({SUPPORTED_LANGUAGES.find((lang) => lang.code === l.langue)?.label ?? l.langue})
+                  </span>
+                )}
+              </span>
               <span className="flex gap-3">
                 <button
                   type="button"

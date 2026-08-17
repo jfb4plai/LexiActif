@@ -34,7 +34,16 @@ export function buildWordQueue(
   return randomOrder ? shuffle(words, rng) : [...words];
 }
 
-const DISTRACTOR_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+// One distractor pool per supported word-list language, so the wheel can
+// draw a plausible "extra" letter for accented characters a language
+// actually uses (e.g. German ÄÖÜ) rather than only ever offering plain A-Z.
+// Unknown language codes fall back to the French pool.
+const DISTRACTOR_POOLS: Record<string, string[]> = {
+  fr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
+  nl: 'ABCDEFGHIJKLMNOPQRSTUVWXYZËÏ'.split(''),
+  en: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
+  de: 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ'.split(''),
+};
 
 /**
  * Builds the shuffled letters for the wheel: the target word's letters,
@@ -47,12 +56,14 @@ export function buildWheelLetters(
   word: string,
   distractorsEnabled: boolean,
   distractorCount: number,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  langue: string = 'fr'
 ): string[] {
   const letters = word.split('');
   if (distractorsEnabled && distractorCount > 0) {
+    const pool = DISTRACTOR_POOLS[langue] ?? DISTRACTOR_POOLS.fr;
     const wordLetterSet = new Set(letters);
-    const availableDistractors = DISTRACTOR_POOL.filter((l) => !wordLetterSet.has(l));
+    const availableDistractors = pool.filter((l) => !wordLetterSet.has(l));
     for (let i = 0; i < distractorCount && availableDistractors.length > 0; i++) {
       const idx = Math.floor(rng() * availableDistractors.length);
       letters.push(availableDistractors[idx]);

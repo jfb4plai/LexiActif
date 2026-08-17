@@ -31,6 +31,7 @@ export interface CreateWordListInput {
   distracteursActifs: boolean;
   nbDistracteurs: number;
   indicesActifs: boolean;
+  langue: string;
 }
 
 export async function createWordList(input: CreateWordListInput): Promise<WordList> {
@@ -43,6 +44,7 @@ export async function createWordList(input: CreateWordListInput): Promise<WordLi
       distracteurs_actifs: input.distracteursActifs,
       nb_distracteurs: input.nbDistracteurs,
       indices_actifs: input.indicesActifs,
+      langue: input.langue,
       share_code: generateShareCode(),
     })
     .select()
@@ -71,6 +73,7 @@ export interface UpdateWordListInput {
   distracteursActifs: boolean;
   nbDistracteurs: number;
   indicesActifs: boolean;
+  langue: string;
 }
 
 export async function updateWordList(input: UpdateWordListInput): Promise<WordList> {
@@ -82,6 +85,7 @@ export async function updateWordList(input: UpdateWordListInput): Promise<WordLi
       distracteurs_actifs: input.distracteursActifs,
       nb_distracteurs: input.nbDistracteurs,
       indices_actifs: input.indicesActifs,
+      langue: input.langue,
     })
     .eq('id', input.listId)
     .select()

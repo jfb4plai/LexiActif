@@ -23,6 +23,7 @@ interface WordListRow {
   distracteurs_actifs: boolean;
   nb_distracteurs: number;
   indices_actifs: boolean;
+  langue: string;
 }
 
 interface WordRow {
@@ -56,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
 
     const listResponse = await fetch(
-      `${baseUrl}/rest/v1/lexi_word_lists?select=id,user_id,nom,ordre_aleatoire,distracteurs_actifs,nb_distracteurs,indices_actifs&share_code=eq.${encodeURIComponent(code)}`,
+      `${baseUrl}/rest/v1/lexi_word_lists?select=id,user_id,nom,ordre_aleatoire,distracteurs_actifs,nb_distracteurs,indices_actifs,langue&share_code=eq.${encodeURIComponent(code)}`,
       { headers }
     );
     if (!listResponse.ok) {
@@ -100,6 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         distracteurs_actifs: list.distracteurs_actifs,
         nb_distracteurs: list.nb_distracteurs,
         indices_actifs: list.indices_actifs,
+        langue: list.langue,
       },
       words: words.map((w) => w.mot),
       students,

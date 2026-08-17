@@ -82,6 +82,32 @@ describe('buildWheelLetters', () => {
       distractorLetters.forEach((l) => expect(wordLetters.has(l)).toBe(false));
     }
   });
+
+  it('defaults to the French distractor pool when no langue is given', () => {
+    const rng = createSeededRng(2);
+    const letters = buildWheelLetters('CHAT', true, 3, rng);
+    const wordLetters = new Set('CHAT'.split(''));
+    letters
+      .filter((l) => !wordLetters.has(l))
+      .forEach((l) => expect('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.includes(l)).toBe(true));
+  });
+
+  it('draws distractors from the German pool (can include ÄÖÜ) when langue is "de"', () => {
+    // Try many seeds so the accented characters have a real chance to be drawn.
+    const sawAccent = Array.from({ length: 50 }, (_, seed) =>
+      buildWheelLetters('HUND', true, 3, createSeededRng(seed), 'de')
+    ).some((letters) => letters.some((l) => 'ÄÖÜ'.includes(l)));
+    expect(sawAccent).toBe(true);
+  });
+
+  it('falls back to the French pool for an unknown langue code', () => {
+    const rng = createSeededRng(2);
+    const letters = buildWheelLetters('CHAT', true, 3, rng, 'xx');
+    const wordLetters = new Set('CHAT'.split(''));
+    letters
+      .filter((l) => !wordLetters.has(l))
+      .forEach((l) => expect('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.includes(l)).toBe(true));
+  });
 });
 
 describe('countWellPlaced', () => {
