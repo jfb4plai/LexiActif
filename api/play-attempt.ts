@@ -1,6 +1,6 @@
 // api/play-attempt.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './_supabaseAdmin';
+import { supabaseAdmin } from './supabaseAdmin';
 
 interface PlayAttemptBody {
   code?: unknown;

@@ -1,6 +1,6 @@
 // api/play-session.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './_supabaseAdmin';
+import { supabaseAdmin } from './supabaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

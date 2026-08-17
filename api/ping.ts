@@ -3,7 +3,7 @@
 // crash. Step 2: import the shared admin helper and construct the Supabase
 // client, but don't query anything yet.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './_supabaseAdmin';
+import { supabaseAdmin } from './supabaseAdmin';
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   try {
