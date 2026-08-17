@@ -68,6 +68,20 @@ describe('buildWheelLetters', () => {
     expect(letters.join('')).not.toEqual('MAISON');
     expect(letters.slice().sort().join('')).toEqual('MAISON'.split('').sort().join(''));
   });
+
+  it('never draws a distractor letter that is already in the word', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const letters = buildWheelLetters('BALLE', true, 2, createSeededRng(seed));
+      const wordLetters = new Set('BALLE'.split(''));
+      const distractorLetters = letters.filter((l, i) => {
+        // crude check: count occurrences beyond what's in the word
+        const countInWord = 'BALLE'.split('').filter((c) => c === l).length;
+        const countSoFar = letters.slice(0, i + 1).filter((c) => c === l).length;
+        return countSoFar > countInWord;
+      });
+      distractorLetters.forEach((l) => expect(wordLetters.has(l)).toBe(false));
+    }
+  });
 });
 
 describe('countWellPlaced', () => {

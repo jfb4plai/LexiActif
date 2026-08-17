@@ -31,7 +31,7 @@ export function Game({ list, student, onExit }: GameProps) {
   useEffect(() => {
     createSession({ listId: list.id, studentId: student.id })
       .then(setSessionId)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Erreur lors du démarrage de la partie.'));
+      .catch(() => setError('Impossible de démarrer la partie. Réessayez.'));
   }, [list.id, student.id]);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function Game({ list, student, onExit }: GameProps) {
         const ordered = words.map((w) => w.mot);
         setQueue(buildWordQueue(ordered, list.ordre_aleatoire));
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Erreur lors du chargement des mots.'));
+      .catch(() => setError('Impossible de charger les mots. Réessayez.'));
   }, [list.id, list.ordre_aleatoire]);
 
   useEffect(() => {
@@ -91,9 +91,9 @@ export function Game({ list, student, onExit }: GameProps) {
         score: success ? scoreForWord(currentWord) : 0,
         distracteursActifs: list.distracteurs_actifs,
       });
-    } catch (e) {
+    } catch {
       setSubmitting(false);
-      setMessage(e instanceof Error ? e.message : "Erreur lors de l'enregistrement, réessayez.");
+      setMessage("Erreur lors de l'enregistrement, réessayez.");
       return;
     }
 

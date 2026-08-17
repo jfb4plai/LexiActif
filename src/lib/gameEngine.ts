@@ -51,8 +51,12 @@ export function buildWheelLetters(
 ): string[] {
   const letters = word.split('');
   if (distractorsEnabled && distractorCount > 0) {
-    for (let i = 0; i < distractorCount; i++) {
-      letters.push(DISTRACTOR_POOL[Math.floor(rng() * DISTRACTOR_POOL.length)]);
+    const wordLetterSet = new Set(letters);
+    const availableDistractors = DISTRACTOR_POOL.filter((l) => !wordLetterSet.has(l));
+    for (let i = 0; i < distractorCount && availableDistractors.length > 0; i++) {
+      const idx = Math.floor(rng() * availableDistractors.length);
+      letters.push(availableDistractors[idx]);
+      availableDistractors.splice(idx, 1);
     }
   }
   return shuffle(letters, rng);

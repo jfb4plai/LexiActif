@@ -10,6 +10,8 @@ Reconstruction PLAI de l'ancienne app "Puzzle de Mots" (`WoW éducatif/index.htm
 
 ## Développement local
 
+> ⚠️ Avant de lancer l'app : la migration `supabase/migrations/20260817000000_create_lexi_tables.sql` doit être appliquée au projet Supabase partagé (`dfoaumjleqtxjeaplnna`) — `supabase db push` a échoué lors du développement initial (conflit d'historique de migrations partagé avec d'autres apps PLAI) et n'a pas encore été résolu manuellement. Sans cette étape, l'app charge mais aucune requête Supabase ne fonctionnera.
+
 ```bash
 npm install
 cp .env.example .env.local   # renseigner VITE_SUPABASE_ANON_KEY
