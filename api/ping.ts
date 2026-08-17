@@ -1,23 +1,19 @@
 // api/ping.ts
-// Bisecting FUNCTION_INVOCATION_FAILED. Step 4: actually call createClient()
-// with the real credentials, now that `ws` has been added as a dependency
-// (Node's serverless runtime has no global WebSocket, and
-// @supabase/realtime-js falls back to requiring `ws` when constructing the
-// client — without it installed, that fallback crashes the whole process,
-// bypassing any JS-level try/catch).
+// Bisecting FUNCTION_INVOCATION_FAILED. Step 5: createClient() now works
+// (ws dependency fixed it). This step performs the actual first DB query
+// from play-list.ts to see if the crash is instead in the network call.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from './supabaseAdmin';
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
-    const url = process.env.VITE_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      res.status(500).json({ error: 'Missing env vars' });
-      return;
-    }
-    const supabase = createClient(url, key);
-    res.status(200).json({ ok: true, clientCreated: !!supabase });
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase
+      .from('lexi_word_lists')
+      .select('id, share_code')
+      .eq('share_code', '3W7MZWNX')
+      .maybeSingle();
+    res.status(200).json({ ok: true, data, error: error?.message ?? null });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) });
   }
