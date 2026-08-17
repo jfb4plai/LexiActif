@@ -15,3 +15,19 @@ npm install
 cp .env.example .env.local   # renseigner VITE_SUPABASE_ANON_KEY
 npm run dev
 ```
+
+## Déploiement
+
+- Vercel, projet lié au dépôt GitHub `jfb4plai/LexiActif`, branche `main`.
+- Variables d'environnement à définir dans Vercel (pas dans le code) :
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- Sous-domaine cible : `lexiactif.jfb4plai.com` (DNS + domaine à ajouter dans les réglages du projet Vercel).
+
+Avant tout `git push` sur `main` :
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
