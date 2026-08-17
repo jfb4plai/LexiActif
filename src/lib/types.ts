@@ -8,6 +8,7 @@ export interface WordList {
   distracteurs_actifs: boolean;
   nb_distracteurs: number;
   indices_actifs: boolean;
+  share_code: string | null;
   created_at: string;
 }
 
