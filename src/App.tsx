@@ -6,6 +6,7 @@ import { Auth } from './components/Auth';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { StudentSelect } from './components/StudentSelect';
 import { Game } from './components/Game';
+import { authenticatedGameDataSource } from './lib/gameDataSource';
 import type { Student, WordList } from './lib/types';
 
 type View =
@@ -42,7 +43,14 @@ function App() {
   }
 
   if (view.name === 'game') {
-    return <Game list={view.list} student={view.student} onExit={() => setView({ name: 'dashboard' })} />;
+    return (
+      <Game
+        list={view.list}
+        student={view.student}
+        dataSource={authenticatedGameDataSource}
+        onExit={() => setView({ name: 'dashboard' })}
+      />
+    );
   }
 
   return (

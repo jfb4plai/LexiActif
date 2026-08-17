@@ -1,13 +1,12 @@
 // src/components/Game.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Student, WordList } from '../lib/types';
-import { getWords } from '../lib/wordLists';
-import { createSession, recordAttempt } from '../lib/attempts';
+import type { GameDataSource, GameStudent, GameWordList } from '../lib/gameDataSource';
 import { buildWheelLetters, buildWordQueue, countWellPlaced, scoreForWord } from '../lib/gameEngine';
 
 interface GameProps {
-  list: WordList;
-  student: Student;
+  list: GameWordList;
+  student: GameStudent;
+  dataSource: GameDataSource;
   onExit: () => void;
 }
 
@@ -26,7 +25,7 @@ function speak(word: string) {
   }
 }
 
-export function Game({ list, student, onExit }: GameProps) {
+export function Game({ list, student, dataSource, onExit }: GameProps) {
   const [queue, setQueue] = useState<string[] | null>(null);
   const [wordIndex, setWordIndex] = useState(0);
   const [wheelLetters, setWheelLetters] = useState<string[]>([]);
@@ -45,19 +44,20 @@ export function Game({ list, student, onExit }: GameProps) {
   const attempt = useMemo(() => selectedIndices.map((i) => wheelLetters[i]).join(''), [selectedIndices, wheelLetters]);
 
   useEffect(() => {
-    createSession({ listId: list.id, studentId: student.id })
+    dataSource
+      .createSession(list.id, student.id)
       .then(setSessionId)
       .catch(() => setError('Impossible de démarrer la partie. Réessayez.'));
-  }, [list.id, student.id]);
+  }, [dataSource, list.id, student.id]);
 
   useEffect(() => {
-    getWords(list.id)
-      .then((words) => {
-        const ordered = words.map((w) => w.mot);
+    dataSource
+      .getWords(list.id)
+      .then((ordered) => {
         setQueue(buildWordQueue(ordered, list.ordre_aleatoire));
       })
       .catch(() => setError('Impossible de charger les mots. Réessayez.'));
-  }, [list.id, list.ordre_aleatoire]);
+  }, [dataSource, list.id, list.ordre_aleatoire]);
 
   useEffect(() => {
     if (!currentWord) return;
@@ -125,7 +125,7 @@ export function Game({ list, student, onExit }: GameProps) {
     const netScore = Math.max(0, scoreForWord(currentWord) - hintsUsed * HINT_COST);
 
     try {
-      await recordAttempt({
+      await dataSource.recordAttempt({
         sessionId,
         mot: currentWord,
         reussi: success,
