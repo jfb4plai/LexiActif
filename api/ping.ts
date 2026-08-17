@@ -1,13 +1,15 @@
 // api/ping.ts
-// Temporary diagnostic endpoint — no imports besides erased types, so if
-// this crashes too, the problem is not specific to Supabase/_supabaseAdmin.
+// Temporary diagnostic endpoint — bisecting a FUNCTION_INVOCATION_FAILED
+// crash. Step 2: import the shared admin helper and construct the Supabase
+// client, but don't query anything yet.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { supabaseAdmin } from './_supabaseAdmin';
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
-  res.status(200).json({
-    ok: true,
-    hasUrl: !!process.env.VITE_SUPABASE_URL,
-    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    hasAnonKey: !!process.env.VITE_SUPABASE_ANON_KEY,
-  });
+  try {
+    const supabase = supabaseAdmin();
+    res.status(200).json({ ok: true, clientCreated: !!supabase });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) });
+  }
 }
