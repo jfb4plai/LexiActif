@@ -25,6 +25,9 @@ npm run dev
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
 - Sous-domaine cible : `lexiactif.jfb4plai.com` (DNS + domaine à ajouter dans les réglages du projet Vercel).
+- `SUPABASE_SERVICE_ROLE_KEY` : variable Vercel supplémentaire, réservée aux fonctions serverless `/api/play-*` (jamais préfixée `VITE_`, jamais dans le frontend). Contourne les règles RLS — à traiter comme un secret admin complet sur le projet Supabase partagé.
+
+Le parcours élève par lien/QR (`/jouer/:code`) repose sur `/api/*` : comme pour les fonctions IA des autres apps PLAI, `npm run dev` seul ne fait pas tourner ces routes — utiliser `vercel dev` pour le tester en local.
 
 Avant tout `git push` sur `main` :
 
