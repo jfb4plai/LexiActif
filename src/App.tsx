@@ -4,9 +4,14 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
 import { TeacherDashboard } from './components/TeacherDashboard';
-import type { WordList } from './lib/types';
+import { StudentSelect } from './components/StudentSelect';
+import { Game } from './components/Game';
+import type { Student, WordList } from './lib/types';
 
-type View = { name: 'dashboard' } | { name: 'game'; list: WordList };
+type View =
+  | { name: 'dashboard' }
+  | { name: 'select-student'; list: WordList }
+  | { name: 'game'; list: WordList; student: Student };
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -27,14 +32,23 @@ function App() {
   if (loading) return <p aria-live="polite">Chargement...</p>;
   if (!session) return <Auth />;
 
+  if (view.name === 'select-student') {
+    return (
+      <StudentSelect
+        userId={session.user.id}
+        onSelect={(student) => setView({ name: 'game', list: view.list, student })}
+      />
+    );
+  }
+
   if (view.name === 'game') {
-    return <p>Jeu à venir (Task 12) — liste : {view.list.nom}</p>;
+    return <Game list={view.list} student={view.student} onExit={() => setView({ name: 'dashboard' })} />;
   }
 
   return (
     <TeacherDashboard
       userId={session.user.id}
-      onStartGame={(list) => setView({ name: 'game', list })}
+      onStartGame={(list) => setView({ name: 'select-student', list })}
       onSignOut={() => supabase.auth.signOut()}
     />
   );

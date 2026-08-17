@@ -9,6 +9,7 @@ const LONG_WORD_THRESHOLD = 10;
 interface WordListsManagerProps {
   userId: string;
   onOpenList: (list: WordList) => void;
+  onPlayList: (list: WordList) => void;
 }
 
 function parseWords(raw: string): string[] {
@@ -19,7 +20,7 @@ function parseWords(raw: string): string[] {
     .map((line) => line.toUpperCase());
 }
 
-export function WordListsManager({ userId, onOpenList }: WordListsManagerProps) {
+export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsManagerProps) {
   const [lists, setLists] = useState<WordList[]>([]);
   const [nom, setNom] = useState('');
   const [rawWords, setRawWords] = useState('');
@@ -147,9 +148,14 @@ export function WordListsManager({ userId, onOpenList }: WordListsManagerProps) 
         {lists.map((l) => (
           <li key={l.id} className="flex justify-between items-center py-1 border-b border-[var(--border)]">
             <span>{l.nom}</span>
-            <button type="button" className="text-sm text-[var(--teal-text)]" onClick={() => onOpenList(l)}>
-              Ouvrir
-            </button>
+            <span className="flex gap-3">
+              <button type="button" className="text-sm text-[var(--teal-text)]" onClick={() => onPlayList(l)}>
+                Jouer
+              </button>
+              <button type="button" className="text-sm text-[var(--teal-text)]" onClick={() => onOpenList(l)}>
+                Progression
+              </button>
+            </span>
           </li>
         ))}
       </ul>

@@ -29,17 +29,8 @@ export function TeacherDashboard({ userId, onStartGame, onSignOut }: TeacherDash
         <>
           <StudentsManager userId={userId} />
           <div style={{ marginTop: 20 }}>
-            <WordListsManager userId={userId} onOpenList={setOpenList} />
+            <WordListsManager userId={userId} onOpenList={setOpenList} onPlayList={onStartGame} />
           </div>
-          <button
-            type="button"
-            className="plai-btn mt-4"
-            onClick={() => openList && onStartGame(openList)}
-            disabled={!openList}
-            hidden
-          >
-            {/* placeholder kept out of tab order via hidden; game entry point wired in Task 12 */}
-          </button>
         </>
       )}
     </div>
