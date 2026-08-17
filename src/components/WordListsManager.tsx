@@ -1,7 +1,7 @@
 // src/components/WordListsManager.tsx
 import { useEffect, useState } from 'react';
 import type { WordList } from '../lib/types';
-import { createWordList, listWordLists } from '../lib/wordLists';
+import { createWordList, deleteWordList, getWords, listWordLists, updateWordList } from '../lib/wordLists';
 import { FormField } from './FormField';
 
 const LONG_WORD_THRESHOLD = 10;
@@ -29,6 +29,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
   const [nbDistracteurs, setNbDistracteurs] = useState(1);
   const [showRissNote, setShowRissNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     listWordLists(userId).then(setLists).catch((e) => setError(e.message));
@@ -37,7 +38,49 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
   const words = parseWords(rawWords);
   const longWords = words.filter((w) => w.length > LONG_WORD_THRESHOLD);
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setNom('');
+    setRawWords('');
+    setOrdreAleatoire(false);
+    setDistracteursActifs(false);
+    setNbDistracteurs(1);
+  };
+
+  const handleEdit = async (list: WordList) => {
+    setError(null);
+    try {
+      const listWords = await getWords(list.id);
+      setEditingId(list.id);
+      setNom(list.nom);
+      setRawWords(listWords.map((w) => w.mot).join('\n'));
+      setOrdreAleatoire(list.ordre_aleatoire);
+      setDistracteursActifs(list.distracteurs_actifs);
+      setNbDistracteurs(list.nb_distracteurs || 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors du chargement de la liste.');
+    }
+  };
+
+  const handleDelete = async (list: WordList) => {
+    if (
+      !window.confirm(
+        `Supprimer la liste « ${list.nom} » ? Cette action supprime aussi tout l'historique de parties liées à cette liste.`
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteWordList(list.id);
+      setLists((prev) => prev.filter((l) => l.id !== list.id));
+      if (editingId === list.id) resetForm();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la suppression.');
+    }
+  };
+
+  const handleSubmit = async () => {
     setError(null);
     if (!nom.trim()) {
       setError('Le nom de la liste est obligatoire.');
@@ -48,25 +91,38 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
       return;
     }
     try {
-      const list = await createWordList({
-        userId,
-        nom: nom.trim(),
-        words,
-        ordreAleatoire,
-        distracteursActifs,
-        nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
-      });
-      setLists((prev) => [list, ...prev]);
-      setNom('');
-      setRawWords('');
+      if (editingId) {
+        const updated = await updateWordList({
+          listId: editingId,
+          nom: nom.trim(),
+          words,
+          ordreAleatoire,
+          distracteursActifs,
+          nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
+        });
+        setLists((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+      } else {
+        const list = await createWordList({
+          userId,
+          nom: nom.trim(),
+          words,
+          ordreAleatoire,
+          distracteursActifs,
+          nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
+        });
+        setLists((prev) => [list, ...prev]);
+      }
+      resetForm();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création.');
+      setError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement.');
     }
   };
 
   return (
     <div className="plai-card">
-      <h2 className="font-serif text-lg mb-3">Listes de mots</h2>
+      <h2 className="font-serif text-lg mb-3">
+        {editingId ? 'Modifier la liste' : 'Listes de mots'}
+      </h2>
 
       <FormField label="Nom de la liste" required help="Ex. « Animaux de la ferme », « Semaine 3 »." style={{ marginBottom: 12 }}>
         <input className="plai-input" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Animaux de la ferme" />
@@ -139,9 +195,16 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
       )}
 
       {error && <div className="plai-error mt-2" role="alert">{error}</div>}
-      <button className="plai-btn mt-3" type="button" onClick={handleCreate}>
-        Créer la liste
-      </button>
+      <div className="flex gap-3 mt-3">
+        <button className="plai-btn" type="button" onClick={handleSubmit}>
+          {editingId ? 'Enregistrer les modifications' : 'Créer la liste'}
+        </button>
+        {editingId && (
+          <button type="button" className="text-sm text-[var(--text3)]" onClick={resetForm}>
+            Annuler
+          </button>
+        )}
+      </div>
 
       <ul className="mt-4">
         {lists.length === 0 && <li className="plai-empty">Aucune liste créée.</li>}
@@ -149,11 +212,37 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           <li key={l.id} className="flex justify-between items-center py-1 border-b border-[var(--border)]">
             <span>{l.nom}</span>
             <span className="flex gap-3">
-              <button type="button" className="text-sm text-[var(--teal-text)]" onClick={() => onPlayList(l)}>
+              <button
+                type="button"
+                className="text-sm text-[var(--teal-text)]"
+                onClick={() => onPlayList(l)}
+                aria-label={`Jouer à la liste ${l.nom}`}
+              >
                 Jouer
               </button>
-              <button type="button" className="text-sm text-[var(--teal-text)]" onClick={() => onOpenList(l)}>
+              <button
+                type="button"
+                className="text-sm text-[var(--teal-text)]"
+                onClick={() => onOpenList(l)}
+                aria-label={`Voir la progression de la liste ${l.nom}`}
+              >
                 Progression
+              </button>
+              <button
+                type="button"
+                className="text-sm text-[var(--teal-text)]"
+                onClick={() => handleEdit(l)}
+                aria-label={`Modifier la liste ${l.nom}`}
+              >
+                Modifier
+              </button>
+              <button
+                type="button"
+                className="text-sm text-[var(--text3)]"
+                onClick={() => handleDelete(l)}
+                aria-label={`Supprimer la liste ${l.nom}`}
+              >
+                Supprimer
               </button>
             </span>
           </li>
