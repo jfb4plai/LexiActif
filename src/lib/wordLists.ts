@@ -1,6 +1,7 @@
 // src/lib/wordLists.ts
 import { supabase } from './supabase';
 import type { Word, WordList } from './types';
+import { generateShareCode } from './shareCode';
 
 export async function listWordLists(userId: string): Promise<WordList[]> {
   const { data, error } = await supabase
@@ -42,6 +43,7 @@ export async function createWordList(input: CreateWordListInput): Promise<WordLi
       distracteurs_actifs: input.distracteursActifs,
       nb_distracteurs: input.nbDistracteurs,
       indices_actifs: input.indicesActifs,
+      share_code: generateShareCode(),
     })
     .select()
     .single();
@@ -119,4 +121,15 @@ export async function updateWordList(input: UpdateWordListInput): Promise<WordLi
 export async function deleteWordList(id: string): Promise<void> {
   const { error } = await supabase.from('lexi_word_lists').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function regenerateShareCode(listId: string): Promise<WordList> {
+  const { data, error } = await supabase
+    .from('lexi_word_lists')
+    .update({ share_code: generateShareCode() })
+    .eq('id', listId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as WordList;
 }
