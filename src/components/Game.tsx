@@ -11,6 +11,21 @@ interface GameProps {
   onExit: () => void;
 }
 
+const WHEEL_SIZE = 260;
+const WHEEL_RADIUS = 100;
+const HINT_COST = 5;
+
+function speak(word: string) {
+  try {
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    speechSynthesis.speak(utterance);
+  } catch {
+    // synthèse vocale non prise en charge par ce navigateur — pas bloquant
+  }
+}
+
 export function Game({ list, student, onExit }: GameProps) {
   const [queue, setQueue] = useState<string[] | null>(null);
   const [wordIndex, setWordIndex] = useState(0);
@@ -23,6 +38,7 @@ export function Game({ list, student, onExit }: GameProps) {
   const [found, setFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const advanceTimeoutRef = useRef<number | undefined>(undefined);
 
   const currentWord = queue ? queue[wordIndex] : null;
@@ -48,6 +64,7 @@ export function Game({ list, student, onExit }: GameProps) {
     setWheelLetters(buildWheelLetters(currentWord, list.distracteurs_actifs, list.nb_distracteurs));
     setSelectedIndices([]);
     setFound(false);
+    setHintsUsed(0);
   }, [wordIndex, currentWord, list.distracteurs_actifs, list.nb_distracteurs]);
 
   useEffect(() => {
@@ -63,10 +80,34 @@ export function Game({ list, student, onExit }: GameProps) {
 
   const selectLetter = (index: number) => {
     if (selectedIndices.includes(index) || found) return;
+    if (selectedIndices.length >= currentWord.length) return;
     setSelectedIndices((prev) => [...prev, index]);
   };
 
   const clearAttempt = () => setSelectedIndices([]);
+
+  const getHint = () => {
+    if (!list.indices_actifs || found) return;
+    if (score < HINT_COST) {
+      setMessage(`Score insuffisant pour un indice (${HINT_COST} points nécessaires).`);
+      return;
+    }
+    const nextPos = attempt.length;
+    if (nextPos >= currentWord.length) {
+      setMessage('Vous avez déjà toutes les lettres.');
+      return;
+    }
+    const neededLetter = currentWord[nextPos];
+    const wheelIndex = wheelLetters.findIndex((l, i) => l === neededLetter && !selectedIndices.includes(i));
+    if (wheelIndex === -1) {
+      setMessage("Indice indisponible pour cette lettre — essayez d'effacer votre sélection.");
+      return;
+    }
+    setSelectedIndices((prev) => [...prev, wheelIndex]);
+    setScore((s) => s - HINT_COST);
+    setHintsUsed((h) => h + 1);
+    setMessage(`Indice utilisé (-${HINT_COST} points)`);
+  };
 
   const submit = async () => {
     if (submitting) return;
@@ -81,6 +122,7 @@ export function Game({ list, student, onExit }: GameProps) {
     setSubmitting(true);
     const wellPlaced = countWellPlaced(attempt, currentWord);
     const success = attempt === currentWord;
+    const netScore = Math.max(0, scoreForWord(currentWord) - hintsUsed * HINT_COST);
 
     try {
       await recordAttempt({
@@ -88,7 +130,7 @@ export function Game({ list, student, onExit }: GameProps) {
         mot: currentWord,
         reussi: success,
         lettresBienPlacees: wellPlaced,
-        score: success ? scoreForWord(currentWord) : 0,
+        score: success ? netScore : 0,
         distracteursActifs: list.distracteurs_actifs,
       });
     } catch {
@@ -103,6 +145,7 @@ export function Game({ list, student, onExit }: GameProps) {
       setWordsFound((n) => n + 1);
       setFound(true);
       setMessage(`Bravo ! +${gained} points`);
+      speak(currentWord);
       advanceTimeoutRef.current = window.setTimeout(() => {
         setWordIndex((i) => i + 1);
         setMessage('');
@@ -120,10 +163,7 @@ export function Game({ list, student, onExit }: GameProps) {
       setMessage("Trouvez d'abord le mot pour entendre sa prononciation.");
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(currentWord);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    speechSynthesis.speak(utterance);
+    speak(currentWord);
   };
 
   return (
@@ -137,36 +177,59 @@ export function Game({ list, student, onExit }: GameProps) {
       </p>
 
       <div className="flex justify-center gap-2 my-4" aria-label="Grille du mot">
-        {currentWord.split('').map((letter, i) => (
-          <div
-            key={i}
-            className="w-10 h-10 flex items-center justify-center rounded font-bold text-lg"
-            style={{ background: found ? 'var(--teal)' : 'var(--surface2)', color: found ? 'white' : 'inherit' }}
-          >
-            {found ? letter : ''}
-          </div>
-        ))}
+        {currentWord.split('').map((_, i) => {
+          const shownLetter = found ? currentWord[i] : attempt[i];
+          return (
+            <div
+              key={i}
+              className="w-10 h-10 flex items-center justify-center rounded font-bold text-lg"
+              style={{
+                background: found ? 'var(--teal)' : shownLetter ? 'var(--surface)' : 'var(--surface2)',
+                color: found ? 'white' : 'inherit',
+                border: shownLetter && !found ? '2px solid var(--teal)' : undefined,
+              }}
+            >
+              {shownLetter ?? ''}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2 my-4" role="group" aria-label="Roue de lettres">
-        {wheelLetters.map((letter, i) => (
-          <button
-            key={i}
-            type="button"
-            className="w-12 h-12 rounded-full font-bold text-lg"
-            style={{
-              background: selectedIndices.includes(i) ? 'var(--teal)' : 'var(--surface)',
-              color: selectedIndices.includes(i) ? 'white' : 'inherit',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-            }}
-            aria-label={`lettre ${letter}`}
-            aria-pressed={selectedIndices.includes(i)}
-            disabled={selectedIndices.includes(i) || found}
-            onClick={() => selectLetter(i)}
-          >
-            {letter}
-          </button>
-        ))}
+      <div
+        className="relative mx-auto my-4"
+        style={{ width: WHEEL_SIZE, height: WHEEL_SIZE, border: '2px dashed var(--teal)', borderRadius: '50%' }}
+        role="group"
+        aria-label="Roue de lettres"
+      >
+        {wheelLetters.map((letter, i) => {
+          const angle = ((i * (360 / wheelLetters.length)) - 90) * (Math.PI / 180);
+          const center = WHEEL_SIZE / 2;
+          const x = center + WHEEL_RADIUS * Math.cos(angle);
+          const y = center + WHEEL_RADIUS * Math.sin(angle);
+          const letterSize = wheelLetters.length > 8 ? 40 : 48;
+          return (
+            <button
+              key={i}
+              type="button"
+              className="absolute rounded-full font-bold text-lg flex items-center justify-center"
+              style={{
+                width: letterSize,
+                height: letterSize,
+                left: x - letterSize / 2,
+                top: y - letterSize / 2,
+                background: selectedIndices.includes(i) ? 'var(--teal)' : 'var(--surface)',
+                color: selectedIndices.includes(i) ? 'white' : 'inherit',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+              }}
+              aria-label={`lettre ${letter}`}
+              aria-pressed={selectedIndices.includes(i)}
+              disabled={selectedIndices.includes(i) || found || selectedIndices.length >= currentWord.length}
+              onClick={() => selectLetter(i)}
+            >
+              {letter}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex justify-center gap-3">
@@ -186,6 +249,18 @@ export function Game({ list, student, onExit }: GameProps) {
         >
           🔊
         </button>
+        {list.indices_actifs && (
+          <button
+            type="button"
+            className="plai-btn"
+            style={{ background: '#f7b731' }}
+            onClick={getHint}
+            aria-label={`Obtenir un indice (coûte ${HINT_COST} points)`}
+            disabled={found}
+          >
+            💡
+          </button>
+        )}
       </div>
 
       <p role="status" aria-live="polite" className="text-center mt-4">

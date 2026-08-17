@@ -7,6 +7,7 @@ export interface WordList {
   ordre_aleatoire: boolean;
   distracteurs_actifs: boolean;
   nb_distracteurs: number;
+  indices_actifs: boolean;
   created_at: string;
 }
 

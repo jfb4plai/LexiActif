@@ -27,6 +27,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
   const [ordreAleatoire, setOrdreAleatoire] = useState(false);
   const [distracteursActifs, setDistracteursActifs] = useState(false);
   const [nbDistracteurs, setNbDistracteurs] = useState(1);
+  const [indicesActifs, setIndicesActifs] = useState(false);
   const [showRissNote, setShowRissNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
     setOrdreAleatoire(false);
     setDistracteursActifs(false);
     setNbDistracteurs(1);
+    setIndicesActifs(false);
   };
 
   const handleEdit = async (list: WordList) => {
@@ -57,6 +59,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
       setOrdreAleatoire(list.ordre_aleatoire);
       setDistracteursActifs(list.distracteurs_actifs);
       setNbDistracteurs(list.nb_distracteurs || 1);
+      setIndicesActifs(list.indices_actifs);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors du chargement de la liste.');
     }
@@ -99,6 +102,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           ordreAleatoire,
           distracteursActifs,
           nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
+          indicesActifs,
         });
         setLists((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
       } else {
@@ -109,6 +113,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           ordreAleatoire,
           distracteursActifs,
           nbDistracteurs: distracteursActifs ? nbDistracteurs : 0,
+          indicesActifs,
         });
         setLists((prev) => [list, ...prev]);
       }
@@ -193,6 +198,11 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
           </select>
         </FormField>
       )}
+
+      <label className="flex items-center gap-2 mt-2">
+        <input type="checkbox" checked={indicesActifs} onChange={(e) => setIndicesActifs(e.target.checked)} />
+        Indices disponibles pour l'élève (💡 révèle la lettre suivante, coûte 5 points)
+      </label>
 
       {error && <div className="plai-error mt-2" role="alert">{error}</div>}
       <div className="flex gap-3 mt-3">
