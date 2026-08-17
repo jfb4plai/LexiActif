@@ -17,7 +17,10 @@ export function TeacherDashboard({ userId, onStartGame, onSignOut }: TeacherDash
   return (
     <div className="plai-section" style={{ maxWidth: 800, margin: '0 auto' }}>
       <nav className="plai-nav">
-        <span className="plai-nav-logo">LexiActif</span>
+        <span className="plai-nav-logo">
+          <img src="/plai-logo.jpg" alt="PLAI" style={{ height: 32 }} />
+          LexiActif
+        </span>
         <button type="button" className="plai-nav-link" onClick={onSignOut}>
           Se déconnecter
         </button>
