@@ -1,16 +1,15 @@
 // api/ping.ts
-// Bisecting FUNCTION_INVOCATION_FAILED. Step 10: check whether this
-// function is actually running on the Edge runtime instead of Node.js
-// (which would explain why `ws`/postgrest-js's Node-specific code paths
-// crash uncatchably instead of throwing a normal JS error).
+// Bisecting FUNCTION_INVOCATION_FAILED. Step 11: retry the supabase-js
+// query now that api/package.json forces CommonJS for this directory.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { supabaseAdmin } from './supabaseAdmin';
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
-  res.status(200).json({
-    ok: true,
-    isEdgeRuntime: typeof (globalThis as unknown as { EdgeRuntime?: unknown }).EdgeRuntime !== 'undefined',
-    processType: typeof process,
-    nodeVersion: typeof process !== 'undefined' ? process.version : null,
-    hasRequire: typeof require !== 'undefined',
-  });
+export default async function handler(_req: VercelRequest, res: VercelResponse) {
+  try {
+    const supabase = supabaseAdmin();
+    const { data, error } = await supabase.from('lexi_word_lists').select('id, share_code').limit(1);
+    res.status(200).json({ ok: true, data, error: error?.message ?? null });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) });
+  }
 }
