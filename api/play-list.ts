@@ -1,6 +1,19 @@
 // api/play-list.ts
+//
+// NOTE: PostgREST access is inlined here rather than factored into a shared
+// helper module. During deployment diagnosis, every api/*.ts function that
+// imported an async operation (an `await fetch(...)`) from a sibling file
+// crashed the whole Vercel Node.js function process with an uncatchable
+// FUNCTION_INVOCATION_FAILED — bypassing top-level try/catch and even
+// process-level uncaughtException/unhandledRejection handlers. The exact
+// same fetch() call, written inline in the handler's own file, worked
+// reliably in every test. This looks like a Vercel function-bundler quirk
+// with cross-file async imports under this project's "type": "module"
+// config, not a Supabase-specific issue (an earlier version of this file
+// crashed identically using @supabase/supabase-js). Until that's root-
+// caused, keep each api/*.ts file self-contained — do not extract this
+// fetch logic into api/postgrest.ts or any other shared module.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { pgSelect } from './postgrest';
 
 interface WordListRow {
   id: string;
@@ -34,25 +47,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const lists = await pgSelect<WordListRow[]>(
-      'lexi_word_lists',
-      `select=id,user_id,nom,ordre_aleatoire,distracteurs_actifs,nb_distracteurs,indices_actifs&share_code=eq.${encodeURIComponent(code)}`
+    const baseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!baseUrl || !serviceKey) {
+      res.status(500).json({ error: 'Configuration serveur manquante' });
+      return;
+    }
+    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+    const listResponse = await fetch(
+      `${baseUrl}/rest/v1/lexi_word_lists?select=id,user_id,nom,ordre_aleatoire,distracteurs_actifs,nb_distracteurs,indices_actifs&share_code=eq.${encodeURIComponent(code)}`,
+      { headers }
     );
+    if (!listResponse.ok) {
+      res.status(404).json({ error: 'Lien invalide ou expiré' });
+      return;
+    }
+    const lists = (await listResponse.json()) as WordListRow[];
     const list = lists[0];
     if (!list) {
       res.status(404).json({ error: 'Lien invalide ou expiré' });
       return;
     }
 
-    const words = await pgSelect<WordRow[]>(
-      'lexi_words',
-      `select=mot,position&list_id=eq.${list.id}&order=position.asc`
+    const wordsResponse = await fetch(
+      `${baseUrl}/rest/v1/lexi_words?select=mot,position&list_id=eq.${list.id}&order=position.asc`,
+      { headers }
     );
+    if (!wordsResponse.ok) {
+      res.status(500).json({ error: 'Erreur lors du chargement des mots' });
+      return;
+    }
+    const words = (await wordsResponse.json()) as WordRow[];
 
-    const students = await pgSelect<StudentRow[]>(
-      'lexi_students',
-      `select=id,code_anonyme&user_id=eq.${list.user_id}&order=code_anonyme.asc`
+    const studentsResponse = await fetch(
+      `${baseUrl}/rest/v1/lexi_students?select=id,code_anonyme&user_id=eq.${list.user_id}&order=code_anonyme.asc`,
+      { headers }
     );
+    if (!studentsResponse.ok) {
+      res.status(500).json({ error: 'Erreur lors du chargement des élèves' });
+      return;
+    }
+    const students = (await studentsResponse.json()) as StudentRow[];
 
     // `list.user_id` is used above only to scope the students query — it is
     // deliberately NOT included in the response object below.

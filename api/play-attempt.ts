@@ -1,6 +1,8 @@
 // api/play-attempt.ts
+//
+// NOTE: self-contained, no shared helper import — see the comment at the
+// top of api/play-list.ts for why.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { pgInsert, pgSelect } from './postgrest';
 
 interface PlayAttemptBody {
   code?: unknown;
@@ -40,28 +42,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    // The `typedSession.lexi_word_lists.share_code !== code` check is the
-    // key defense here: it proves the sessionId the client is submitting an
-    // attempt for was genuinely created against THIS share code's list, not
-    // an arbitrary session UUID borrowed from elsewhere.
-    const sessions = await pgSelect<SessionRow[]>(
-      'lexi_sessions',
-      `select=id,lexi_word_lists(share_code)&id=eq.${encodeURIComponent(sessionId)}`
+    const baseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!baseUrl || !serviceKey) {
+      res.status(500).json({ error: 'Configuration serveur manquante' });
+      return;
+    }
+    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+    // The `share_code !== code` check is the key defense here: it proves
+    // the sessionId the client is submitting an attempt for was genuinely
+    // created against THIS share code's list, not an arbitrary session
+    // UUID borrowed from elsewhere.
+    const sessionResponse = await fetch(
+      `${baseUrl}/rest/v1/lexi_sessions?select=id,lexi_word_lists(share_code)&id=eq.${encodeURIComponent(sessionId)}`,
+      { headers }
     );
+    if (!sessionResponse.ok) {
+      res.status(403).json({ error: 'Session invalide pour ce lien' });
+      return;
+    }
+    const sessions = (await sessionResponse.json()) as SessionRow[];
     const session = sessions[0];
     if (!session || session.lexi_word_lists?.share_code !== code) {
       res.status(403).json({ error: 'Session invalide pour ce lien' });
       return;
     }
 
-    await pgInsert('lexi_attempts', {
-      session_id: sessionId,
-      mot,
-      reussi,
-      lettres_bien_placees: lettresBienPlacees,
-      score,
-      distracteurs_actifs: distracteursActifs,
+    const attemptResponse = await fetch(`${baseUrl}/rest/v1/lexi_attempts`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        mot,
+        reussi,
+        lettres_bien_placees: lettresBienPlacees,
+        score,
+        distracteurs_actifs: distracteursActifs,
+      }),
     });
+    if (!attemptResponse.ok) {
+      res.status(500).json({ error: "Erreur lors de l'enregistrement" });
+      return;
+    }
 
     res.status(200).json({ ok: true });
   } catch (e) {
