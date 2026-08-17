@@ -28,6 +28,7 @@ export function ShareLinkPanel({ list, onListUpdated }: ShareLinkPanelProps) {
 
   const handleCopy = async () => {
     if (!shareUrl) return;
+    setError(null);
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -47,8 +48,10 @@ export function ShareLinkPanel({ list, onListUpdated }: ShareLinkPanelProps) {
     }
   };
 
+  const panelId = `share-panel-${list.id}`;
+
   return (
-    <li className="py-3 border-b border-[var(--border)]" style={{ background: 'var(--surface2)' }}>
+    <li id={panelId} className="py-3 border-b border-[var(--border)]" style={{ background: 'var(--surface2)' }}>
       <p className="text-sm font-semibold mb-2">Lien élève — {list.nom}</p>
       {error && <div className="plai-error mb-2" role="alert">{error}</div>}
       {shareUrl ? (

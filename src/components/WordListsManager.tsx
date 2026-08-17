@@ -246,6 +246,7 @@ export function WordListsManager({ userId, onOpenList, onPlayList }: WordListsMa
                   className="text-sm text-[var(--teal-text)]"
                   onClick={() => setSharingListId((id) => (id === l.id ? null : l.id))}
                   aria-expanded={sharingListId === l.id}
+                  aria-controls={`share-panel-${l.id}`}
                   aria-label={`Partager la liste ${l.nom}`}
                 >
                   Partager
