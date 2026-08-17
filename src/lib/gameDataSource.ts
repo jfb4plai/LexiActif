@@ -15,6 +15,10 @@ export interface GameStudent {
   code_anonyme: string;
 }
 
+// Game.tsx depends on this object's identity (its effects list `dataSource`
+// as a dependency) — callers must pass a referentially stable instance,
+// e.g. a module-level constant or a `useMemo`'d value, never a fresh object
+// literal constructed inline on every render.
 export interface GameDataSource {
   getWords: (listId: string) => Promise<string[]>;
   createSession: (listId: string, studentId: string) => Promise<string>;
