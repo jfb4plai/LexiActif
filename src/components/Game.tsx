@@ -39,7 +39,9 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
+  const [errorFlash, setErrorFlash] = useState(false);
   const advanceTimeoutRef = useRef<number | undefined>(undefined);
+  const errorFlashTimeoutRef = useRef<number | undefined>(undefined);
 
   const currentWord = queue ? queue[wordIndex] : null;
   const attempt = useMemo(() => selectedIndices.map((i) => wheelLetters[i]).join(''), [selectedIndices, wheelLetters]);
@@ -74,6 +76,9 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
     return () => {
       if (advanceTimeoutRef.current !== undefined) {
         window.clearTimeout(advanceTimeoutRef.current);
+      }
+      if (errorFlashTimeoutRef.current !== undefined) {
+        window.clearTimeout(errorFlashTimeoutRef.current);
       }
     };
   }, []);
@@ -158,6 +163,9 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
       setMessage(`${wellPlaced} lettre(s) sur ${currentWord.length} sont bien placée(s).`);
       setSelectedIndices([]);
       setSubmitting(false);
+      setErrorFlash(true);
+      if (errorFlashTimeoutRef.current !== undefined) window.clearTimeout(errorFlashTimeoutRef.current);
+      errorFlashTimeoutRef.current = window.setTimeout(() => setErrorFlash(false), 600);
     }
   };
 
@@ -179,7 +187,11 @@ export function Game({ list, student, dataSource, onExit }: GameProps) {
         {student.code_anonyme} — {wordsFound} mot(s) réussi(s) — {score} points
       </p>
 
-      <div className="flex justify-center gap-2 my-4" aria-label="Grille du mot">
+      <div
+        className={`flex justify-center gap-2 my-4 p-2 ${errorFlash ? 'lexi-error-flash' : ''}`}
+        style={{ border: '2px solid transparent' }}
+        aria-label="Grille du mot"
+      >
         {currentWord.split('').map((_, i) => {
           const shownLetter = found ? currentWord[i] : attempt[i];
           return (
