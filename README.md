@@ -36,3 +36,14 @@ npm run typecheck
 npm run test
 npm run build
 ```
+
+## Branchement sur HubActif
+
+LexiActif est branché sur [HubActif](https://hubactif-plai.vercel.app) (assignation et suivi transversaux des apps PLAI) depuis le 2026-09-20.
+
+- **Enseignant** : le panneau de partage d'une liste propose « Assigner via HubActif » (`src/lib/hubLink.ts`). HubActif remet à chaque élève son propre QR code vers `/jouer/<code>`.
+- **Élève** : un lien de HubActif arrive avec `?t=<jeton>`. `src/lib/hubToken.ts` retire le jeton de l'adresse et le range par liste ; `api/play-hub-student.ts` vérifie sa signature (clé publique de HubActif), puis retrouve ou crée l'élève portant son code : plus de menu « Qui joue ? ». Sans jeton ou avec un jeton invalide, le parcours habituel est inchangé.
+- **Compte rendu** : à la fin d'une partie (tous les mots réussis), `api/play-attempt.ts` envoie « terminé » à HubActif depuis le serveur (durée, essais, mots réussis, mots repris). Un échec d'envoi ne gêne jamais l'élève ; il n'y a pas de renvoi automatique.
+- **Variables Vercel (serveur uniquement)** : `HUB_APP_KEY` (clé d'app, secrète, affichée une seule fois à l'enregistrement par `scripts/register-app.mjs` de HubActif), `HUB_SIGNING_PUBLIC_KEY` (clé publique de vérification des jetons), `HUB_URL` (facultative, défaut `https://hubactif-plai.vercel.app`). Jamais préfixées `VITE_`.
+- **Le bloc `hub-bridge`** de `api/play-hub-student.ts` et `api/play-attempt.ts` est une copie de `src/lib/hubBridge.ts` (les fonctions `api/` doivent rester autonomes). Après toute modification : `node scripts/sync-hub-bridge.mjs` ; le test `src/lib/hubBridge.test.ts` échoue si les copies divergent.
+- Indicateurs envoyés (libellés déclarés à HubActif, à ne pas renommer sans les redéclarer) : « mots réussis », « mots repris ».
