@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import type { WordList } from '../lib/types';
 import { regenerateShareCode } from '../lib/wordLists';
+import { buildHubAssignUrl } from '../lib/hubLink';
 
 interface ShareLinkPanelProps {
   list: WordList;
@@ -81,6 +82,21 @@ export function ShareLinkPanel({ list, onListUpdated }: ShareLinkPanelProps) {
               height={200}
             />
           )}
+          <div className="mt-3">
+            <a
+              className="plai-btn"
+              style={{ textDecoration: 'none', display: 'inline-block' }}
+              href={buildHubAssignUrl(list.nom, shareUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Assigner via HubActif
+            </a>
+            <p className="text-sm text-[var(--text2)] mt-1">
+              Donnez cette liste à une classe entière ou à quelques élèves : HubActif remet à chaque élève son propre
+              QR code, et vous montre qui a commencé et qui a terminé. Aucun élève n'a besoin de choisir son code.
+            </p>
+          </div>
         </>
       ) : (
         <button type="button" className="plai-btn" onClick={handleGenerate}>

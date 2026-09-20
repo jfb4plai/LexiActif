@@ -1,11 +1,11 @@
-// api/play-attempt.ts
+// api/play-hub-student.ts
 //
-// NOTE: self-contained, no shared helper import — see the comment at the
-// top of api/play-list.ts for why.
+// Élève arrivé par un lien de HubActif (/jouer/<code>?t=<jeton>) : vérifie le jeton signé, puis retourne (en le
+// créant au besoin) l'élève de la liste qui porte son code, pour lui éviter le menu « Qui joue ? ».
+// Le jeton est signé par HubActif : seuls ses élèves réels peuvent ainsi créer une ligne dans le fichier d'élèves
+// d'un enseignant (sans cette vérification, n'importe qui pourrait le remplir de codes bidon).
 //
-// HubActif : si la requête porte un jeton du hub (élève arrivé par un lien de HubActif), la fin de la partie
-// (tous les mots réussis) est signalée au hub, depuis ce serveur : le résultat est calculé ici, pas déclaré par
-// le navigateur. Un échec d'envoi ne gêne jamais l'élève.
+// NOTE: autonome, aucun import d'un fichier voisin — voir la note en tête de api/play-list.ts.
 // Le bloc hub-bridge est une copie de src/lib/hubBridge.ts (un test vérifie qu'il est identique).
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -117,57 +117,16 @@ export function buildHubEvent(sessionId: string, token: string, s: HubSessionSum
 }
 // <hub-bridge:end>
 
-interface PlayAttemptBody {
-  code?: unknown;
-  sessionId?: unknown;
-  mot?: unknown;
-  reussi?: unknown;
-  lettresBienPlacees?: unknown;
-  score?: unknown;
-  distracteursActifs?: unknown;
-  hubToken?: unknown;
-}
+const HUB_APP_SLUG = 'lexiactif';
 
-interface SessionRow {
+interface WordListRow {
   id: string;
-  list_id: string;
-  started_at: string;
-  lexi_word_lists: { share_code: string | null } | null;
+  user_id: string;
 }
 
-async function notifyHub(
-  baseUrl: string,
-  headers: Record<string, string>,
-  session: SessionRow,
-  hubToken: string
-): Promise<void> {
-  const appKey = process.env.HUB_APP_KEY;
-  if (!appKey) return;
-  try {
-    const [wordsResponse, attemptsResponse] = await Promise.all([
-      fetch(`${baseUrl}/rest/v1/lexi_words?select=mot&list_id=eq.${encodeURIComponent(session.list_id)}`, { headers }),
-      fetch(`${baseUrl}/rest/v1/lexi_attempts?select=mot,reussi&session_id=eq.${encodeURIComponent(session.id)}`, {
-        headers,
-      }),
-    ]);
-    if (!wordsResponse.ok || !attemptsResponse.ok) return;
-    const words = ((await wordsResponse.json()) as { mot: string }[]).map((w) => w.mot);
-    const attempts = (await attemptsResponse.json()) as HubAttemptRow[];
-    const summary = summarizeSession(words, attempts);
-    if (!summary.completed) return;
-
-    const durationS = (Date.now() - new Date(session.started_at).getTime()) / 1000;
-    const hubUrl = (process.env.HUB_URL || 'https://hubactif-plai.vercel.app').trim().replace(/\/+$/, '');
-    const response = await fetch(`${hubUrl}/api/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-app-key': appKey.trim() },
-      body: JSON.stringify(buildHubEvent(session.id, hubToken, summary, durationS)),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) console.warn('[hub] événement refusé', response.status);
-  } catch {
-    console.warn('[hub] envoi impossible');
-  }
+interface StudentRow {
+  id: string;
+  code_anonyme: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -177,72 +136,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const { code, sessionId, mot, reussi, lettresBienPlacees, score, distracteursActifs, hubToken } = (req.body ??
-      {}) as PlayAttemptBody;
-
-    if (
-      typeof code !== 'string' ||
-      typeof sessionId !== 'string' ||
-      typeof mot !== 'string' ||
-      typeof reussi !== 'boolean' ||
-      typeof lettresBienPlacees !== 'number' ||
-      typeof score !== 'number' ||
-      typeof distracteursActifs !== 'boolean'
-    ) {
-      res.status(400).json({ error: 'Paramètres invalides' });
+    const { code, hubToken } = (req.body ?? {}) as { code?: unknown; hubToken?: unknown };
+    if (typeof code !== 'string' || typeof hubToken !== 'string') {
+      res.status(400).json({ error: 'Paramètres manquants' });
       return;
     }
 
     const baseUrl = process.env.VITE_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!baseUrl || !serviceKey) {
+    const hubPublicKey = process.env.HUB_SIGNING_PUBLIC_KEY;
+    if (!baseUrl || !serviceKey || !hubPublicKey) {
       res.status(500).json({ error: 'Configuration serveur manquante' });
       return;
     }
+
+    const payload = await verifyHubToken(hubToken, hubPublicKey.trim(), Math.floor(Date.now() / 1000), HUB_APP_SLUG);
+    if (!payload || payload.code.length === 0 || payload.code.length > 32) {
+      res.status(401).json({ error: 'Lien HubActif invalide ou expiré' });
+      return;
+    }
+
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
 
-    // The `share_code !== code` check is the key defense here: it proves
-    // the sessionId the client is submitting an attempt for was genuinely
-    // created against THIS share code's list, not an arbitrary session
-    // UUID borrowed from elsewhere.
-    const sessionResponse = await fetch(
-      `${baseUrl}/rest/v1/lexi_sessions?select=id,list_id,started_at,lexi_word_lists(share_code)&id=eq.${encodeURIComponent(sessionId)}`,
+    const listResponse = await fetch(
+      `${baseUrl}/rest/v1/lexi_word_lists?select=id,user_id&share_code=eq.${encodeURIComponent(code)}`,
       { headers }
     );
-    if (!sessionResponse.ok) {
-      res.status(403).json({ error: 'Session invalide pour ce lien' });
+    if (!listResponse.ok) {
+      res.status(404).json({ error: 'Lien invalide ou expiré' });
       return;
     }
-    const sessions = (await sessionResponse.json()) as SessionRow[];
-    const session = sessions[0];
-    if (!session || session.lexi_word_lists?.share_code !== code) {
-      res.status(403).json({ error: 'Session invalide pour ce lien' });
+    const list = ((await listResponse.json()) as WordListRow[])[0];
+    if (!list) {
+      res.status(404).json({ error: 'Lien invalide ou expiré' });
       return;
     }
 
-    const attemptResponse = await fetch(`${baseUrl}/rest/v1/lexi_attempts`, {
+    // Retrouve l'élève (enseignant, code) ou le crée : la fiche LexiActif de l'élève suit son code HubActif.
+    const studentResponse = await fetch(`${baseUrl}/rest/v1/lexi_students?on_conflict=user_id,code_anonyme`, {
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        mot,
-        reussi,
-        lettres_bien_placees: lettresBienPlacees,
-        score,
-        distracteurs_actifs: distracteursActifs,
-      }),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify({ user_id: list.user_id, code_anonyme: payload.code }),
     });
-    if (!attemptResponse.ok) {
-      res.status(500).json({ error: "Erreur lors de l'enregistrement" });
+    if (!studentResponse.ok) {
+      res.status(500).json({ error: "Erreur lors de la recherche de l'élève" });
+      return;
+    }
+    const student = ((await studentResponse.json()) as StudentRow[])[0];
+    if (!student) {
+      res.status(500).json({ error: "Erreur lors de la recherche de l'élève" });
       return;
     }
 
-    // Seule une réussite peut terminer la partie ; sans jeton du hub, aucune requête supplémentaire.
-    if (reussi && typeof hubToken === 'string' && hubToken.length > 0) {
-      await notifyHub(baseUrl, headers, session, hubToken);
-    }
-
-    res.status(200).json({ ok: true });
+    res.status(200).json({ student: { id: student.id, code_anonyme: student.code_anonyme } });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erreur inattendue' });
   }

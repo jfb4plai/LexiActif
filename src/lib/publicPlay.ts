@@ -21,7 +21,19 @@ export async function fetchPlayList(code: string): Promise<PublicPlayData> {
   return parseJsonOrThrow(response);
 }
 
-export function publicGameDataSource(code: string): GameDataSource {
+// Élève arrivé par un lien de HubActif : le serveur vérifie le jeton et retrouve (ou crée) l'élève qui porte son code.
+export async function fetchHubStudent(code: string, hubToken: string): Promise<GameStudent> {
+  const response = await fetch('/api/play-hub-student', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, hubToken }),
+  });
+  const body = await parseJsonOrThrow(response);
+  return body.student as GameStudent;
+}
+
+// `hubToken` : joint à chaque essai pour que le serveur puisse signaler la fin de la partie à HubActif.
+export function publicGameDataSource(code: string, hubToken?: string): GameDataSource {
   return {
     getWords: async () => {
       const data = await fetchPlayList(code);
@@ -40,7 +52,7 @@ export function publicGameDataSource(code: string): GameDataSource {
       const response = await fetch('/api/play-attempt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, ...input }),
+        body: JSON.stringify({ code, ...input, ...(hubToken ? { hubToken } : {}) }),
       });
       await parseJsonOrThrow(response);
     },
