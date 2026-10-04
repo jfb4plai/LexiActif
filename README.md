@@ -47,3 +47,11 @@ LexiActif est branché sur [HubActif](https://hubactif-plai.vercel.app) (assigna
 - **Variables Vercel (serveur uniquement)** : `HUB_APP_KEY` (clé d'app, secrète, affichée une seule fois à l'enregistrement par `scripts/register-app.mjs` de HubActif), `HUB_SIGNING_PUBLIC_KEY` (clé publique de vérification des jetons), `HUB_URL` (facultative, défaut `https://hubactif-plai.vercel.app`). Jamais préfixées `VITE_`.
 - **Le bloc `hub-bridge`** de `api/play-hub-student.ts` et `api/play-attempt.ts` est une copie de `src/lib/hubBridge.ts` (les fonctions `api/` doivent rester autonomes). Après toute modification : `node scripts/sync-hub-bridge.mjs` ; le test `src/lib/hubBridge.test.ts` échoue si les copies divergent.
 - Indicateurs envoyés (libellés déclarés à HubActif, à ne pas renommer sans les redéclarer) : « mots réussis », « mots repris ».
+
+## Licences
+
+- **Code** : [PolyForm Noncommercial 1.0.0](LICENSE). Usage non commercial uniquement.
+- **Contenus pédagogiques** : [CC BY-NC-SA 4.0](LICENSE-CONTENT.md). Réutilisation et adaptation non commerciales, avec attribution et partage dans les mêmes conditions.
+- **Logo et identité visuelle PLAI** : tous droits réservés (voir `LICENSE-CONTENT.md`).
+
+Auteur : Jean-François Beguin, Référent numérique, https://jfb4plai.com
